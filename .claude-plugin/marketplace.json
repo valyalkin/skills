@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "alex-skills",
+  "description": "A collection of agent skills for coding work, packaged as small single-purpose Claude Code plugins",
+  "owner": {
+    "name": "Alexander Valyalkin",
+    "email": "valyalkin@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "conventional-commits",
+      "description": "Writes git commit messages and pull request titles that follow the Conventional Commits specification, derived from the actual staged diff",
+      "author": {
+        "name": "Alexander Valyalkin"
+      },
+      "source": "./plugins/conventional-commits",
+      "category": "development"
+    }
+  ]
+}

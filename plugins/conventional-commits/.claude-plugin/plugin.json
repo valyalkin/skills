@@ -1,0 +1,9 @@
+{
+  "name": "conventional-commits",
+  "description": "Writes git commit messages and pull request titles that follow the Conventional Commits specification, derived from the actual staged diff",
+  "author": {
+    "name": "Alexander Valyalkin",
+    "email": "valyalkin@gmail.com"
+  },
+  "version": "0.1.0"
+}
