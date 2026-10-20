@@ -1,0 +1,54 @@
+{
+  "_comment": [
+    "Merge `scripts` into the project's package.json. Install `dependencies` and",
+    "`devDependencies` with `pnpm add` / `pnpm add -D` so the lockfile records real",
+    "resolved versions - do not copy version ranges in by hand."
+  ],
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": [
+    "next",
+    "react",
+    "react-dom",
+    "zod",
+    "clsx",
+    "use-debounce",
+    "@heroicons/react",
+    "server-only"
+  ],
+  "devDependencies": [
+    "typescript",
+    "@types/node",
+    "@types/react",
+    "@types/react-dom",
+    "tailwindcss",
+    "@tailwindcss/turbopack",
+    "@tailwindcss/forms",
+    "eslint",
+    "eslint-config-next",
+    "eslint-plugin-testing-library",
+    "prettier",
+    "prettier-plugin-tailwindcss",
+    "vitest",
+    "@vitejs/plugin-react",
+    "jsdom",
+    "@testing-library/react",
+    "@testing-library/dom",
+    "@testing-library/user-event",
+    "@testing-library/jest-dom",
+    "msw",
+    "@playwright/test",
+    "@axe-core/playwright"
+  ]
+}

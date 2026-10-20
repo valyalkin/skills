@@ -26,6 +26,7 @@ versions.
 | Plugin | Skills | What it does |
 | --- | --- | --- |
 | [`conventional-commits`](plugins/conventional-commits) | `conventional-commits` | Commit messages and PR titles in Conventional Commits form, derived from the staged diff |
+| [`frontend-developer`](plugins/frontend-developer) | `frontend-developer` | Next.js App Router frontends in TypeScript, structured like the next-learn dashboard example, with mandatory tests and linting |
 
 ## How skills get used
 

@@ -1,0 +1,9 @@
+{
+  "name": "frontend-developer",
+  "description": "Builds Next.js App Router frontends in TypeScript with the structure and conventions of the next-learn dashboard example: server-first data fetching against a separate backend API, Server Actions with Zod validation, mandatory tests and linting",
+  "author": {
+    "name": "Alexander Valyalkin",
+    "email": "valyalkin@gmail.com"
+  },
+  "version": "0.1.0"
+}
