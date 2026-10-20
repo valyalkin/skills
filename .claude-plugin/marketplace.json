@@ -3,8 +3,7 @@
   "name": "alex-skills",
   "description": "A collection of agent skills for coding work, packaged as small single-purpose Claude Code plugins",
   "owner": {
-    "name": "Alexander Valyalkin",
-    "email": "valyalkin@gmail.com"
+    "name": "Alexander Valyalkin"
   },
   "plugins": [
     {

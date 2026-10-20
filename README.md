@@ -7,11 +7,11 @@ plugin is small and single-purpose, so you install only the skills you want.
 ## Install
 
 ```
-/plugin marketplace add <owner>/skills
+/plugin marketplace add valyalkin/skills
 /plugin install conventional-commits@alex-skills
 ```
 
-`<owner>/skills` is this repository on GitHub; a local path works too, which is useful while
+`valyalkin/skills` is this repository; a local path works too, which is useful while
 developing:
 
 ```

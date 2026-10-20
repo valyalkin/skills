@@ -24,6 +24,6 @@ in `assets/`.
 ## Install
 
 ```
-/plugin marketplace add <owner>/skills
+/plugin marketplace add valyalkin/skills
 /plugin install frontend-developer@alex-skills
 ```

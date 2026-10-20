@@ -13,6 +13,6 @@ staged diff rather than from the request that produced it.
 ## Install
 
 ```
-/plugin marketplace add <owner>/skills
+/plugin marketplace add valyalkin/skills
 /plugin install conventional-commits@alex-skills
 ```
