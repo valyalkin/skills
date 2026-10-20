@@ -24,10 +24,13 @@ Then:
 3. Merge the `scripts` block from `package.scripts.json` into `package.json`, then install the
    `dependencies` and `devDependencies` it lists. `create-next-app` pins `@types/node@^20`,
    which Vitest 5 rejects — install `@types/node@^24`.
-4. Create `app/lib/{env,api,data,actions,definitions,utils}.ts`, `app/ui/fonts.ts`,
-   `mocks/{handlers,server}.ts`, `e2e/`, and `.env.example` with `API_BASE_URL`.
-5. `pnpm exec playwright install --with-deps chromium`.
-6. Verify: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
+4. Create `app/lib/{env,api,auth0,auth,data,actions,definitions,utils}.ts`, `app/ui/fonts.ts`,
+   `proxy.ts` (copy `../assets/proxy.ts`), `mocks/{handlers,server}.ts`, `e2e/`, and
+   `.env.example` (copy `../assets/env.example`).
+5. Metadata: `title.template` + `metadataBase` in `app/layout.tsx`, plus `app/icon.png`,
+   `app/opengraph-image.tsx`, `app/sitemap.ts`, `app/robots.ts` (`metadata.md`).
+6. `pnpm exec playwright install --with-deps chromium`.
+7. Verify: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
 
 ## Scripts
 
@@ -116,12 +119,42 @@ A non-Turbopack build instead needs `postcss.config.mjs` with the `@tailwindcss/
 Design tokens go here, not into component class strings. Do not reintroduce a JS Tailwind
 config; if a migration guide suggests one, the project is on v4 and uses `@theme`.
 
+## Caching model
+
+This skill targets **Cache Components**, which `create-next-app` enables by default on Next 16
+(`cacheComponents: true`, `partialPrefetching: true` in `assets/next.config.ts`). That is the
+assumption behind every pattern in `data-layer.md`: `'use cache'` + `cacheTag`/`cacheLife`,
+`updateTag` after writes, and sync pages that pass `params`/`searchParams` into Suspense'd
+sections.
+
+Do not turn it off to make the old tutorial-style code compile. On an existing project that has
+it off, follow the legacy notes at the end of `data-layer.md` instead, and do not mix the two
+models in one codebase.
+
+## Typed routes
+
+`typedRoutes: true` (stable, off by default) type-checks every `href`, `redirect()` and
+`router.replace()` against the real route tree. Worth enabling; two casts are then needed, both
+verified:
+
+- constructed query URLs: `replace(`${pathname}?${params}` as Route)`
+- Auth0's virtual routes, which are served by the proxy and so are not in the route union:
+  `redirect('/auth/login' as Route)`
+
+with `import type { Route } from 'next'`.
+
 ## Environment variables
 
 `.env.local` (gitignored) for real values, `.env.example` committed with the keys and dummy
-values. Server-only keys have no `NEXT_PUBLIC_` prefix and are read exclusively through
-`app/lib/env.ts`, which validates them at startup. Anything prefixed `NEXT_PUBLIC_` is public —
-treat it as published.
+values (`assets/env.example`). Server-only keys have no `NEXT_PUBLIC_` prefix and are read
+exclusively through `app/lib/env.ts`, which validates them at startup. Anything prefixed
+`NEXT_PUBLIC_` is public — treat it as published.
+
+The Auth0 set is `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_SECRET`
+(`openssl rand -hex 32`), `APP_BASE_URL` and your API's `AUTH0_AUDIENCE`. Register
+`$APP_BASE_URL/auth/callback` as an Allowed Callback URL and `$APP_BASE_URL` as an Allowed
+Logout URL in the Auth0 dashboard; the application type is **Regular Web Application**.
+`vitest.setup.ts` must define the same required variables.
 
 ## CI
 
@@ -133,7 +166,7 @@ One workflow, one job, in this order so the cheapest check fails first:
 - run: pnpm lint
 - run: pnpm format:check
 - run: pnpm test
-- run: pnpm build          # env: API_BASE_URL (app/lib/env.ts validates it at build time)
+- run: pnpm build          # env: the full app/lib/env.ts set, validated at build time
 - run: pnpm exec playwright install --with-deps chromium
 - run: pnpm test:e2e
 ```
@@ -142,8 +175,10 @@ Run it on pull requests and on `main`. A red CI is a blocking defect, not a flak
 
 ## Verified toolchain
 
-The asset configs and every pattern in these references were smoke-tested end to end
-(`typecheck`, `lint`, `format:check`, `test`, `build` all green) on 2026-10-19 against:
+The asset configs and every pattern in these references were smoke-tested end to end on
+2026-10-20 — a scaffolded app with the Auth0 proxy, an authenticated API read, metadata,
+sitemap/robots and 13 tests, with `typecheck`, `lint`, `format:check`, `test` and `build` all
+green — against:
 
 | Package | Version |
 | --- | --- |
@@ -155,6 +190,7 @@ The asset configs and every pattern in these references were smoke-tested end to
 | vitest | 5.0.5 |
 | msw | 3.0.3 |
 | @playwright/test | 1.64.1 |
+| @auth0/nextjs-auth0 | 4.32.1 |
 | eslint / eslint-config-next | 9.39 / 16.4.2 |
 
 If an installed major differs, trust the tool's own error message over this guide, fix the

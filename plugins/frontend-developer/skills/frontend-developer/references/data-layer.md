@@ -18,18 +18,23 @@ import { z } from 'zod';
 const serverEnvSchema = z.object({
   // Zod 4. On Zod 3 this is z.string().url().
   API_BASE_URL: z.url(),
-  API_TOKEN: z.string().min(1).optional(),
+  AUTH0_AUDIENCE: z.string().min(1),
 });
 
 export const env = serverEnvSchema.parse({
   API_BASE_URL: process.env.API_BASE_URL,
-  API_TOKEN: process.env.API_TOKEN,
+  AUTH0_AUDIENCE: process.env.AUTH0_AUDIENCE,
 });
 ```
 
-Server-only — importing it from a client component is a bug (the module would leak the token
-into the bundle). Anything the browser legitimately needs is a separate `NEXT_PUBLIC_*` schema.
-Keep `.env.example` in sync and never commit `.env.local`.
+Add every variable the app needs here, including the Auth0 ones the SDK reads
+(`AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_SECRET`, `APP_BASE_URL`), so
+a missing value fails at startup instead of at the first login.
+
+Server-only — importing it from a client component is a bug (the module would leak secrets into
+the bundle). Anything the browser legitimately needs is a separate `NEXT_PUBLIC_*` schema.
+Keep `.env.example` in sync, never commit `.env.local`, and remember `vitest.setup.ts` must
+define the same required variables (`testing.md`).
 
 ## `app/lib/api.ts` — the one wrapper
 
@@ -55,7 +60,6 @@ export async function apiFetch<T>(
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      ...(env.API_TOKEN ? { Authorization: `Bearer ${env.API_TOKEN}` } : {}),
       ...headers,
     },
   });
@@ -75,8 +79,10 @@ export async function apiFetch<T>(
 Rules:
 
 - Generic in the response type; callers pass a type from `app/lib/definitions.ts`. Never `any`.
-- The wrapper does transport only — no caching options. Caching is declared one level up, in
-  `app/lib/data.ts`, with `'use cache'` (see below).
+- The wrapper does transport only — no caching options and no auth. Caching is declared one
+  level up in `app/lib/data.ts` with `'use cache'`; the user's token is attached by
+  `authedFetch` in `app/lib/auth.ts` (`auth.md`). Keeping Auth0 out of this module is what
+  lets public-data tests run without session mocking.
 - Non-2xx throws `ApiError`. Callers decide: `notFound()` on 404, field errors on 422, rethrow
   otherwise so `error.tsx` catches it.
 - Validate the payload with Zod at this boundary when the API is not under your control or its
@@ -90,6 +96,7 @@ import 'server-only';
 import { cacheLife, cacheTag } from 'next/cache';
 import { notFound } from 'next/navigation';
 import { apiFetch, ApiError } from '@/app/lib/api';
+import { authedFetch } from '@/app/lib/auth';
 import type { Invoice, InvoicesTable } from '@/app/lib/definitions';
 
 const ITEMS_PER_PAGE = 6;
@@ -116,12 +123,19 @@ export async function fetchInvoiceById(id: string) {
     throw error;
   }
 }
+
+/** Per-user read: no 'use cache', because the token and the data are per request. */
+export async function fetchMyInvoiceSummary() {
+  return authedFetch<{ outstanding: number; paid: number }>('/me/invoices/summary');
+}
 ```
 
 - One exported function per read a page needs. Name them `fetch<Thing>` as the example does.
 - Shape data for the UI here (money formatting, row mapping), so components stay presentational.
 - Fetch independent things in parallel: `const [cards, revenue] = await Promise.all([...])`.
-  Sequential `await`s that do not depend on each other are a performance bug.
+  Sequential `await`s that do not depend on each other are a **request waterfall** — each one
+  waits for the previous round trip for no reason. A waterfall is only correct when a later
+  request genuinely needs an earlier result.
 - Fetch in the component that needs the data, not in a parent that drills props.
 - `env.ts`, `api.ts` and `data.ts` each start with `import 'server-only'`, so importing one from
   a client component fails the build instead of leaking the token into the bundle. Tests stub
@@ -161,13 +175,16 @@ Rules:
   `cacheTag('invoices', 'invoice:' + id)`. Tags are how a mutation invalidates precisely.
 - A cached scope **cannot read `cookies()`, `headers()` or `draftMode()`**. Read per-request
   values in the caller and pass them in as arguments — that also keeps them in the cache key.
-  Anything genuinely per-user is usually better left uncached.
+- **Per-user data is never cached.** It is fetched with `authedFetch` from `app/lib/auth.ts`,
+  which reads the session cookie; put it in its own component inside `<Suspense>`. Caching it
+  would serve one user's data to another. See `auth.md`.
 - Everything the cached function returns and receives must be serializable.
 
 | Situation | What to do |
 | --- | --- |
 | Shared, slowly changing data | `'use cache'` + `cacheTag` + `cacheLife('minutes'/'hours')` |
-| Per-user or per-request data | no directive — leave it dynamic, inside `<Suspense>` |
+| Per-user data (`authedFetch`) | no directive, ever — dynamic, inside `<Suspense>` |
+| Other per-request data | no directive — dynamic, inside `<Suspense>` |
 | Just written by an action | `updateTag('invoices')` in the action |
 | Stale-while-revalidate is fine | `revalidateTag('invoices')` (also valid from a Route Handler) |
 
@@ -189,7 +206,9 @@ per-request data, and `revalidateTag`/`revalidatePath` after writes. Check
 Under Cache Components a route is prerendered as a static shell with dynamic holes. Reading
 request data (`searchParams`, `params`, `cookies()`, `headers()`) or awaiting an uncached fetch
 **outside** a `<Suspense>` boundary blocks that, and the build fails with
-"Next.js encountered uncached or runtime data during prerendering".
+"Next.js encountered uncached or runtime data during prerendering". This applies equally to a
+dynamic route's `params`, and to a session read in a layout — which is why protection lives in
+`proxy.ts` and the user menu sits inside its own boundary.
 
 So the page stays synchronous and hands the promise down:
 
@@ -225,6 +244,8 @@ export default async function InvoicesTableSection({
 
 - A client component calling `useSearchParams` also needs its own `<Suspense>` boundary, for the
   same reason.
+- A dynamic route does the same with `params`: sync page → `<Suspense>` → async section that
+  awaits it. `generateMetadata` is exempt and may await `params` directly (`metadata.md`).
 - `loading.tsx` covers the whole segment; per-panel `<Suspense>` gives a faster shell and is
   preferred for pages with several independent panels.
 - Skeletons mirror the real layout (same column count, same card grid) and are `aria-hidden`.
@@ -237,4 +258,6 @@ export default async function InvoicesTableSection({
 - `ApiError` propagates to the nearest `error.tsx`, which must be a client component taking
   `{ error, reset }` and offering a retry.
 - 404 → `notFound()` → the segment's `not-found.tsx`.
+- 401 → the token is stale: `authedFetch` redirects to `/auth/login` (see `auth.md`). 403 is an
+  authorization failure — render a "no access" state rather than bouncing to login.
 - Never render a raw error message or stack to the user; log the error and show a sentence.

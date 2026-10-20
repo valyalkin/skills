@@ -65,6 +65,9 @@ export default function Search({ placeholder }: { placeholder: string }) {
 - The input is uncontrolled with `defaultValue` from the URL; the URL is the state.
 - The server side reads the same params by awaiting the `searchParams` promise inside a
   Suspense'd async section (never in the page body), so the rendered result matches the URL.
+- **Which API to reach for:** read params from a client component with the `useSearchParams`
+  hook (no server round trip); read them on the server from the `searchParams` prop. Never
+  thread them from the server into a client component that could read the hook itself.
 
 Keep genuine UI-only state (a menu open/closed, an optimistic row) in React. `useOptimistic` is
 the right tool for instant feedback on an action; `useTransition` for non-urgent updates.
@@ -92,8 +95,10 @@ the right tool for instant feedback on an action; `useTransition` for non-urgent
 
 ## Styling
 
-- Tailwind utility classes in JSX. No CSS modules, no styled-components, no inline `style`
-  except for a genuinely computed value (chart bar heights in the example).
+- Tailwind utility classes in JSX. No styled-components and no inline `style` except for a
+  genuinely computed value (chart bar heights in the example). CSS Modules work in Next and are
+  a reasonable choice in general — this project standardises on Tailwind so that every
+  component reads the same way, so do not mix the two.
 - `app/ui/global.css` is imported once, by `app/layout.tsx`. Design tokens (brand colors,
   custom grids, keyframes) go in its `@theme` block — see `references/tooling.md`.
 - Mobile first: unprefixed classes are the small screen, then `md:`/`lg:` override. The example
@@ -104,11 +109,21 @@ the right tool for instant feedback on an action; `useTransition` for non-urgent
 ## Images, fonts, links
 
 - `next/image` with explicit `width`/`height` and meaningful `alt`; `alt=""` only for
-  decoration. Use the `hidden md:block` / `block md:hidden` pair for art-directed variants.
+  decoration. The dimensions are what prevent layout shift, so never omit them (or use `fill`
+  with a sized parent). Add `sizes` for responsive images and `priority` for the one
+  above-the-fold hero. Images served from the API's domain need an `images.remotePatterns`
+  entry in `next.config.ts`.
+- Use the `hidden md:block` / `block md:hidden` pair for art-directed desktop/mobile variants.
 - Fonts come from `app/ui/fonts.ts` via `next/font/google`, applied as
-  `className={inter.className}` — no `<link>` tags, no font CSS imports.
-- Internal navigation is always `next/link`, never `<a href>` — `<a>` loses client-side
-  navigation and prefetching.
+  `className={inter.className}` — no `<link>` tags, no font CSS imports. `next/font` downloads
+  and self-hosts at build time, which removes a network round trip and the font swap that
+  causes **cumulative layout shift**. Two exports is the usual shape: a body font on `<body>`
+  in the root layout, and a display font used per heading
+  (`className={`${lusitana.className} text-2xl`}`).
+- Internal navigation is always `next/link`, never `<a href>`. Next code-splits per route
+  segment and `<Link>` prefetches the segments in view, so navigation stays instant and a
+  broken page cannot take down the rest of the app; a plain `<a>` throws that away with a full
+  reload. The exception is `/auth/login` and `/auth/logout` (see `auth.md`).
 
 ## Accessibility baseline
 

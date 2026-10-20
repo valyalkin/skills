@@ -1,6 +1,6 @@
 ---
 name: frontend-developer
-description: This skill should be used for any frontend work in a Next.js App Router project — when the user asks to "build a Next.js app", "scaffold a frontend", "add a page", "add a route", "add a component", "fetch data in a server component", "add a form", "write a server action", "add a dashboard", or to set up TypeScript, Tailwind, tests or linting for a Next.js frontend. It fixes the project structure, the data-fetching and mutation patterns, and the mandatory TypeScript/test/lint gates.
+description: This skill should be used for any frontend work in a Next.js App Router project — when the user asks to "build a Next.js app", "scaffold a frontend", "add a page", "add a route", "add a component", "fetch data in a server component", "add a form", "write a server action", "add a dashboard", or to set up TypeScript, Tailwind, tests, linting, Auth0 login, route protection or page metadata for a Next.js frontend. It fixes the project structure, the data-fetching and mutation patterns, and the mandatory TypeScript/test/lint gates.
 version: 0.1.0
 ---
 
@@ -10,8 +10,9 @@ Build and extend Next.js frontends structured like the
 [next-learn dashboard example](https://github.com/vercel/next-learn/tree/main/dashboard/final-example):
 `app/` holds routes, `app/ui/` holds components, `app/lib/` holds data access and types.
 
-**The backend is a separate service.** This project renders UI and talks to that service over
-HTTP. Never add a database client, an ORM, SQL, a seed route, or password hashing here.
+**The backend is a separate service, and this app is the BFF.** It renders UI, owns the user
+session (Auth0, cookie-based), and calls the API server-side with an access token attached.
+Never add a database client, an ORM, SQL, a seed route, or password hashing here.
 
 ## Non-negotiables
 
@@ -28,8 +29,14 @@ HTTP. Never add a database client, an ORM, SQL, a seed route, or password hashin
   (`references/tooling.md`).
 - **Server-first.** Data is fetched on the server through `app/lib/data.ts`; `'use client'` is
   an exception that must be justified.
-- **Caching is explicit.** Cacheable reads declare `'use cache'` with `cacheTag` + `cacheLife`;
-  everything else is dynamic and lives inside `<Suspense>`.
+- **Caching is explicit.** The project runs Cache Components (`cacheComponents: true`):
+  cacheable reads declare `'use cache'` with `cacheTag` + `cacheLife`, writes invalidate with
+  `updateTag`, and everything else is dynamic and lives inside `<Suspense>`. Never cache
+  per-user data.
+- **Auth is Auth0 + BFF.** Tokens stay in the server session cookie and never reach client
+  JavaScript; protected segments are gated in `proxy.ts`; the API validates every token.
+- **Every route carries metadata.** A `title` at minimum, `robots: { index: false }` behind
+  auth.
 
 ## Where code goes
 
@@ -43,10 +50,15 @@ HTTP. Never add a database client, an ORM, SQL, a seed route, or password hashin
 | `app/ui/<feature>/<component>.tsx` | Feature components | kebab-case file, default-exported component |
 | `app/ui/<shared>.tsx` | Cross-feature UI | e.g. `button.tsx`, `search.tsx`, `skeletons.tsx`, `fonts.ts` |
 | `app/lib/definitions.ts` | Domain types | Hand-written; the single source of payload shapes |
-| `app/lib/api.ts` | The one `fetch` wrapper | Base URL, headers, `ApiError`; starts with `import 'server-only'` |
+| `app/lib/api.ts` | The one `fetch` wrapper | Transport only: base URL, headers, `ApiError`; starts with `import 'server-only'` |
+| `app/lib/auth0.ts` | The `Auth0Client` singleton | `audience` + `scope` for the API |
+| `app/lib/auth.ts` | `requireSession`, `authedFetch` | Token attachment and 401 handling |
+| `proxy.ts` (root) | Auth mount + segment gating | Serves `/auth/*`; replaces `middleware.ts` |
 | `app/lib/data.ts` | Read functions | The only place pages read data from |
 | `app/lib/actions.ts` | Server Actions (writes) | `'use server'`, Zod validation |
 | `app/lib/utils.ts` | Pure helpers | Formatting, pagination maths — trivially unit-testable |
+| `app/sitemap.ts`, `app/robots.ts` | Public SEO surface | Never list authed routes |
+| `app/opengraph-image.tsx`, `app/icon.png` | Social card, favicon | File conventions, no `<meta>` by hand |
 | `e2e/*.spec.ts` | Playwright specs | One per user flow |
 
 A new feature means a route segment **plus** an `app/ui/<feature>/` directory. Do not invent a
@@ -59,7 +71,7 @@ top-level `components/`, `hooks/`, `services/` or `src/` directory — this layo
    It calls `apiFetch<T>()` — never `fetch` directly, never from the component body. Cacheable
    reads declare `'use cache'` with `cacheTag` + `cacheLife`; per-request reads stay dynamic.
 3. Keep the page **synchronous** and never await `searchParams` or `params` in its body — under
-   Cache Components that blocks prerendering of the whole route. Pass the promise down instead:
+   Cache Components either one blocks prerendering of the whole route. Pass the promise down:
    `<Suspense fallback={<XSkeleton />}><Section searchParams={props.searchParams} /></Suspense>`,
    and `await` it inside that small async section component.
 4. Wrap every dynamic child in `<Suspense>` with a skeleton, including client components that
@@ -67,13 +79,19 @@ top-level `components/`, `hooks/`, `services/` or `src/` directory — this layo
 5. Put the data-dependent part in a child component under `app/ui/<feature>/`, and the skeleton
    in `app/ui/skeletons.tsx` mirroring its real layout.
 6. Add `error.tsx` for the segment, and `not-found.tsx` if a lookup can miss.
-7. Add the nav entry to `app/ui/dashboard/nav-links.tsx` if it belongs in the sidebar.
-8. Tests: unit-test the data function with a mocked API, RTL-test any client component,
+7. Metadata: `export const metadata = { title: '…' }`, or `generateMetadata` for a dynamic
+   route (it *may* await `params`). Add `robots: { index: false }` behind auth, and add the
+   route to `app/sitemap.ts` if it is public. See `references/metadata.md`.
+8. Add the nav entry to `app/ui/dashboard/nav-links.tsx` if it belongs in the sidebar, and
+   `PROTECTED_PREFIXES` in `proxy.ts` if the segment needs a session.
+9. Tests: unit-test the data function with a mocked API, RTL-test any client component,
    Playwright-test the flow.
 
 ## Workflow: add a mutation
 
 1. Define the Zod schema and the action in `app/lib/actions.ts` (`'use server'` at the top).
+   Re-check the session inside the action — the proxy deliberately lets action requests
+   through (see `references/auth.md`).
 2. The action `safeParse`s `FormData`, returns `{ errors, message }` on failure
    (the `State` type), calls the API on success, then `updateTag(...)` and `redirect(...)`.
 3. The form is a small `'use client'` component in `app/ui/<feature>/` using
@@ -97,6 +115,8 @@ handlers, browser APIs, or hooks like `usePathname`/`useSearchParams`/`useAction
 - Keep state in the URL (`?query=`, `?page=`) rather than in React state when it should survive
   reload and be shareable. See `references/components.md`.
 - Only `NEXT_PUBLIC_*` env vars exist in client code. API base URLs and tokens are server-only.
+- Read the session only where the user is actually rendered, inside `<Suspense>` — never in a
+  layout's shell, or the whole subtree becomes dynamic.
 
 ## Definition of done
 
@@ -104,7 +124,9 @@ handlers, browser APIs, or hooks like `usePathname`/`useSearchParams`/`useAction
 - [ ] New data access goes through `app/lib/data.ts` → `app/lib/api.ts`; no stray `fetch`.
 - [ ] Loading and error states exist for anything that awaits data.
 - [ ] Labels, focus states and keyboard paths work; errors are announced.
-- [ ] No backend concerns (DB, ORM, SQL, secrets) added to this repo.
+- [ ] Metadata set; authed routes marked `index: false`.
+- [ ] Per-user data uncached; tokens never crossed into client code.
+- [ ] No backend concerns (DB, ORM, SQL, password handling) added to this repo.
 
 ## References
 
@@ -113,6 +135,8 @@ handlers, browser APIs, or hooks like `usePathname`/`useSearchParams`/`useAction
 | `references/structure.md` | Laying out a new project or unsure where a file belongs |
 | `references/data-layer.md` | Writing `api.ts`/`data.ts`, choosing caching, handling API errors |
 | `references/forms-and-actions.md` | Any write path, form validation, or action error mapping |
+| `references/auth.md` | Login, logout, session, route protection, calling the API as the user |
+| `references/metadata.md` | Titles, Open Graph, icons, sitemap, robots |
 | `references/components.md` | Building components, URL state, styling, accessibility |
 | `references/testing.md` | Writing tests or setting up Vitest/RTL/MSW/Playwright |
 | `references/tooling.md` | Bootstrapping configs, scripts, Tailwind v4, ESLint, CI |

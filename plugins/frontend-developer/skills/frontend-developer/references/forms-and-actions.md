@@ -144,6 +144,9 @@ Rules:
   validation results, plus one container for the form-level `message`.
 - Select/radio groups use `defaultValue=""` with a disabled placeholder; wrap radios in a
   `<fieldset>` with a `<legend>`.
+- The browser's own `required` / `type="email"` / `min` attributes are a free first line of
+  feedback and are fine to add, but they are never the validation: the Zod schema in the action
+  is the single source of truth, since anything client-side can be bypassed.
 - Pending state comes from `useFormStatus` inside the submit button, never from `useState`:
 
   ```tsx

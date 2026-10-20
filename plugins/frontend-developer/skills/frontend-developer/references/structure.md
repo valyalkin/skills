@@ -4,6 +4,7 @@ The layout mirrors `vercel/next-learn/dashboard/final-example`, minus everything
 owns. Keep it; it is the convention this project is reviewed against.
 
 ```
+proxy.ts                     # Auth0 mount + protected-segment gating (was middleware.ts)
 app/
   layout.tsx                 # root layout: html/body, font class, metadata template
   page.tsx                   # landing page
@@ -18,8 +19,11 @@ app/
       create/page.tsx        # create form page
       [id]/edit/page.tsx     # edit form page
       [id]/edit/not-found.tsx
+  sitemap.ts                 # public routes only
+  robots.ts
+  opengraph-image.tsx        # social card; icon.png / favicon.ico alongside
   ui/
-    fonts.ts                 # next/font definitions, imported by name elsewhere
+    fonts.ts                 # next/font definitions: body font + display font for headings
     global.css               # Tailwind entry, imported only by app/layout.tsx
     button.tsx               # shared primitives live flat in app/ui/
     search.tsx
@@ -35,7 +39,9 @@ app/
       status.tsx
   lib/
     env.ts                   # validated server env ('server-only')
-    api.ts                   # the single fetch wrapper ('server-only')
+    api.ts                   # the single fetch wrapper, transport only ('server-only')
+    auth0.ts                 # Auth0Client singleton
+    auth.ts                  # requireSession(), authedFetch()
     data.ts                  # read functions, 'use cache' where cacheable
     actions.ts               # 'use server' write actions
     definitions.ts           # domain types
@@ -48,13 +54,18 @@ mocks/
   server.ts                  # MSW node server for Vitest
 ```
 
-Deliberately absent, because the backend owns it: `app/seed/`, `app/query/`, `auth.ts`,
-`auth.config.ts`, `app/lib/placeholder-data.ts`, any `postgres`/ORM dependency, password
-hashing. If a task seems to need one of these, the task belongs in the backend repo — say so
-rather than adding it here.
+Deliberately absent, because the API owns it: `app/seed/`, `app/query/`,
+`app/lib/placeholder-data.ts`, any `postgres`/ORM dependency, password hashing, user records,
+roles. If a task seems to need one of these, it belongs in the backend repo — say so rather
+than adding it here.
 
-Route handlers under `app/api/` are allowed **only** as a thin BFF edge: forwarding a webhook,
-or proxying a call that must hide a token. They never contain business logic.
+Authentication is **not** in that list. This app is the BFF: it owns the session cookie, gates
+protected segments in `proxy.ts`, and forwards an access token to the API. There is no login
+form to build (Auth0 Universal Login is hosted) and no `auth.config.ts`; see `auth.md`.
+
+Route handlers under `app/api/` are allowed **only** as a thin edge: forwarding a webhook, or
+proxying a call a client component genuinely must make. They never contain business logic. The
+`/auth/*` routes are served by the SDK from `proxy.ts` — never write files for them.
 
 ## Naming
 

@@ -4,14 +4,14 @@ Three layers, each with a clear job:
 
 | Layer | Tool | Covers |
 | --- | --- | --- |
-| Unit | Vitest | `app/lib/utils.ts`, Zod schemas, `app/lib/data.ts` and action logic with the API mocked |
+| Unit | Vitest | `app/lib/utils.ts`, Zod schemas, `app/lib/data.ts`, `app/lib/auth.ts` and action logic with the API mocked |
 | Component | Vitest + React Testing Library | Client components: rendered output, interaction, aria wiring |
 | End to end | Playwright | Whole flows through Server Components and Server Actions, API mocked |
 
 Tests are colocated: `app/lib/utils.test.ts`, `app/ui/invoices/pagination.test.tsx`. Playwright
 specs live in `e2e/`. MSW handlers are shared from `mocks/`.
 
-Two environment facts that will otherwise cost an afternoon:
+Four environment facts that will otherwise cost an afternoon:
 
 - Server-only modules start with `import 'server-only'`, which throws outside a Server
   Component. `vitest.config.mts` replaces it with an empty module (see the `stubServerOnly`
@@ -20,6 +20,23 @@ Two environment facts that will otherwise cost an afternoon:
   runtime. Mock them in any test that touches a cached data function:
   `vi.mock('next/cache', () => ({ cacheTag: vi.fn(), cacheLife: vi.fn() }))`. Keep `e2e/` in
   `tsconfig.json` so type-aware lint can parse the specs, and exclude it in Vitest's `exclude`.
+- `app/lib/env.ts` validates at import time, so **every required variable must be set in
+  `vitest.setup.ts`**. Miss one and importing any server module fails with a ZodError that
+  names the variable, not the test.
+- `vi.mock` is hoisted above the imports. A factory that closes over a plain top-level `const`
+  throws "Cannot access '…' before initialization" — create those spies with `vi.hoisted`:
+
+  ```ts
+  const { getAccessToken, redirect } = vi.hoisted(() => ({
+    getAccessToken: vi.fn(async () => ({ token: 'test-token' })),
+    redirect: vi.fn(() => {
+      throw new Error('NEXT_REDIRECT');
+    }),
+  }));
+
+  vi.mock('@/app/lib/auth0', () => ({ auth0: { getAccessToken } }));
+  vi.mock('next/navigation', () => ({ redirect }));
+  ```
 
 Setup files to copy are in `../assets/` (`vitest.config.mts`, `vitest.setup.ts`,
 `playwright.config.ts`); see `tooling.md`.
@@ -196,6 +213,38 @@ test('creating an invoice shows a validation error for an empty customer', async
   Actions behave as they will in production. That is also the only place the prerendering rules
   from `data-layer.md` are enforced, so the E2E run doubles as a check on them.
 - Add an axe accessibility assertion (`@axe-core/playwright`) on each main page.
+
+## Authenticated paths
+
+Mock `@/app/lib/auth0` (the project's singleton), never the SDK's internals, and assert the
+contract rather than the plumbing:
+
+```ts
+it('attaches the access token as a bearer header', async () => {
+  let seen: string | null = null;
+  server.use(
+    http.get('http://api.test/me/summary', ({ request }) => {
+      seen = request.headers.get('authorization');
+      return HttpResponse.json({ outstanding: 1 });
+    }),
+  );
+
+  await expect(authedFetch('/me/summary')).resolves.toMatchObject({ outstanding: 1 });
+  expect(seen).toBe('Bearer test-token');
+});
+
+it('redirects to login when the API rejects the token', async () => {
+  server.use(
+    http.get('http://api.test/me/summary', () => new HttpResponse(null, { status: 401 })),
+  );
+
+  await expect(authedFetch('/me/summary')).rejects.toThrow('NEXT_REDIRECT');
+  expect(redirect).toHaveBeenCalledWith('/auth/login');
+});
+```
+
+For E2E, stub `**/auth/**` or use a dedicated Auth0 test tenant with a seeded user. Never point
+Playwright at a tenant holding real users.
 
 ## What not to test
 
