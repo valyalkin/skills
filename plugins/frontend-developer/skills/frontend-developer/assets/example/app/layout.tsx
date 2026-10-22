@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import '@/app/ui/global.css';
 import { inter } from '@/app/ui/fonts';
+import WebVitals from '@/app/ui/web-vitals';
 
 export const metadata: Metadata = {
   title: {
@@ -18,7 +19,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} antialiased`}>{children}</body>
+      <body className={`${inter.className} antialiased`}>
+        {children}
+        <WebVitals />
+      </body>
     </html>
   );
 }

@@ -328,7 +328,7 @@ strict a11y rule set, pre-commit hooks and 13 tests, with `typecheck`, `lint`, `
 | eslint-plugin-jsx-a11y | strict set, 33 rules |
 | husky / lint-staged | 9.x / 17.6.0 |
 
-The reference implementation in `../assets/example/` is that same verified app: 15 tests, all
+The reference implementation in `../assets/example/` is that same verified app: 17 tests, all
 five gates green, dashboard routes partially prerendered.
 | eslint / eslint-config-next | 9.39 / 16.4.2 |
 

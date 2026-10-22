@@ -68,6 +68,8 @@ Never add a database client, an ORM, SQL, a seed route, or password hashing here
 | `app/lib/utils.ts` | Pure helpers | Formatting, pagination maths — trivially unit-testable |
 | `app/sitemap.ts`, `app/robots.ts` | Public SEO surface | Never list authed routes |
 | `app/opengraph-image.tsx`, `app/icon.png` | Social card, favicon | File conventions, no `<meta>` by hand |
+| `instrumentation.ts` (root) | `onRequestError` | Reports server errors; never logs headers |
+| `app/lib/observability.ts` | Report building and shipping | The one vendor seam |
 | `e2e/*.spec.ts` | Playwright specs | One per user flow |
 
 A new feature means a route segment **plus** an `app/ui/<feature>/` directory. Do not invent a
@@ -87,7 +89,8 @@ top-level `components/`, `hooks/`, `services/` or `src/` directory — this layo
    call `useSearchParams`. The static shell then streams instantly.
 5. Put the data-dependent part in a child component under `app/ui/<feature>/`, and the skeleton
    in `app/ui/skeletons.tsx` mirroring its real layout.
-6. Add `error.tsx` for the segment, and `not-found.tsx` if a lookup can miss.
+6. Add `error.tsx` for the segment (reporting via `reportClientError`, not `console.error`),
+   and `not-found.tsx` if a lookup can miss.
 7. Metadata: `export const metadata = { title: '…' }`, or `generateMetadata` for a dynamic
    route (it *may* await `params`). Add `robots: { index: false }` behind auth, and add the
    route to `app/sitemap.ts` if it is public. See `references/metadata.md`.
@@ -134,7 +137,7 @@ handlers, browser APIs, or hooks like `usePathname`/`useSearchParams`/`useAction
 
 - [ ] `pnpm typecheck && pnpm lint && pnpm test` green; `pnpm build` green for structural changes.
 - [ ] New data access goes through `app/lib/data.ts` → `app/lib/api.ts`; no stray `fetch`.
-- [ ] Loading and error states exist for anything that awaits data.
+- [ ] Loading and error states exist for anything that awaits data, and errors are reported.
 - [ ] Labels, focus states and keyboard paths work; errors are announced.
 - [ ] Metadata set; authed routes marked `index: false`.
 - [ ] Per-user data uncached; no token or `session` passed across the client boundary.
@@ -149,6 +152,7 @@ handlers, browser APIs, or hooks like `usePathname`/`useSearchParams`/`useAction
 | `references/forms-and-actions.md` | Any write path, form validation, or action error mapping |
 | `references/auth.md` | Login, logout, session, route protection, calling the API as the user |
 | `references/metadata.md` | Titles, Open Graph, icons, sitemap, robots |
+| `references/observability.md` | Error reporting, `instrumentation.ts`, Web Vitals |
 | `references/components.md` | Building components, URL state, styling, accessibility |
 | `references/testing.md` | Writing tests or setting up Vitest/RTL/MSW/Playwright |
 | `references/tooling.md` | Bootstrapping configs, scripts, Tailwind v4, ESLint, CI |

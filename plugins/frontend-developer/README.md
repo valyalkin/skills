@@ -20,7 +20,8 @@ Playwright) and linting (ESLint flat config + Prettier) are treated as gates, no
 | `frontend-developer` | "build a Next.js app", "add a page/route/component", "fetch data in a server component", "add a form", "write a server action", frontend scaffolding, Tailwind/test/lint setup |
 
 The skill body is a lean workflow; the detail lives in `references/` (structure, data layer,
-forms and actions, auth, metadata, components, testing, tooling), with copyable config templates
+forms and actions, auth, metadata, observability, components, testing, tooling), with copyable
+config templates
 in `assets/` and a complete verified reference app in `assets/example/`.
 
 ## Install

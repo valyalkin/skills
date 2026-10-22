@@ -7,8 +7,10 @@ owns. Keep it; it is the convention this project is reviewed against.
 
 ```
 proxy.ts                     # Auth0 mount + protected-segment gating (was middleware.ts)
+instrumentation.ts           # onRequestError -> error reporting
 app/
   layout.tsx                 # root layout: html/body, font class, metadata template
+  global-error.tsx           # catches root-layout failures; renders its own html/body
   page.tsx                   # landing page
   dashboard/
     layout.tsx               # sidebar + content shell
@@ -32,6 +34,7 @@ app/
     skeletons.tsx
     button.tsx               # shared primitive
     search-form.tsx          # next/form submit search (server component)
+    web-vitals.tsx           # useReportWebVitals, mounted once in the root layout
     <feature>/
       table-section.tsx      # async boundary: awaits searchParams, renders the table
       table.tsx              # async server component that fetches via app/lib/data.ts
@@ -45,6 +48,8 @@ app/
   lib/
     api-schema.d.ts          # GENERATED from the OpenAPI spec - never edit
     env.ts                   # validated server env ('server-only')
+    observability.ts         # error report building + the vendor seam
+    report-client-error.ts   # browser-side reporting (safe to import in client components)
     api.ts                   # the single fetch wrapper, transport only ('server-only')
     auth0.ts                 # Auth0Client singleton
     auth.ts                  # requireSession(), authedFetch()
