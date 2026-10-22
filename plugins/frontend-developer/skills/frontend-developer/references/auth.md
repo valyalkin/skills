@@ -57,7 +57,7 @@ export const auth0 = new Auth0Client({
 ## The proxy
 
 ```ts
-// proxy.ts
+// proxy.ts (full file in ../assets/example/proxy.ts)
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { auth0 } from '@/app/lib/auth0';
@@ -112,6 +112,28 @@ stay prerenderable. Reading the session in `app/dashboard/layout.tsx` instead wo
   on every request; a proxy check alone is bypassable in ways the API cannot see.
 - `auth0.withPageAuthRequired(Component, { returnTo })` is the SDK's co-located alternative for
   one-off protected pages. It makes that page dynamic, so prefer the proxy for whole segments.
+
+## Where the session lives, and what that costs
+
+The session is **stateless by default**: the SDK encrypts it (JWE, AES-256-GCM, keyed from
+`AUTH0_SECRET`) into the `__session` cookie. There is no server-side store — the cookie *is*
+the session, which is what makes this work on serverless with no sticky state.
+
+Two consequences:
+
+- **Size.** Browsers cap a cookie around 4KB, so the SDK chunks anything over 3500 bytes across
+  `__session__0`, `__session__1`, … up to five chunks, and warns past that. Every request
+  carries the whole thing, so bloat shows up as `431 Request Header Fields Too Large`. You
+  control this: keep `scope` to what the API needs, and do not stuff large custom claims into
+  the token. If the profile data is big, fetch it from the API instead of carrying it.
+- **No server-side revocation.** There is nothing to delete, so you cannot invalidate one
+  user's session from your side; clearing the cookie only ends it in that browser. Rotating
+  `AUTH0_SECRET` invalidates *everyone's*.
+
+If you need "sign out everywhere", or the session genuinely cannot fit, pass a `sessionStore` to
+the `Auth0Client`. The cookie then holds only an id and the contents live in Redis or Postgres —
+a datastore read per request, in exchange for a small cookie and real revocation. Default to
+stateless and revisit only on one of those two triggers.
 
 ## Session and API calls
 
@@ -311,3 +333,18 @@ and breach detection as homework, which is exactly what Auth0 is there to do.
 Password storage, user records, roles and permissions, token validation, and any
 `client_credentials` machine-to-machine flow. This app proves who the user is and forwards that
 proof. If a task needs a database or a password hash, it belongs in the API.
+
+The contract between the two is worth stating explicitly, because it constrains what this app
+may send:
+
+- **The user's identifier is the token's `sub` claim** (`auth0|…`, `google-oauth2|…`). The API
+  derives identity from the validated token and nothing else.
+- **Never send an identifier from the client.** No user id in a body, query param or hidden
+  field — a client-supplied id is a suggestion from someone who may be lying. The same goes for
+  email: it changes, can be unverified, and is not an identity.
+- An access token for an API audience carries no profile claims. If the API needs the user's
+  name or email, they are added as **namespaced** custom claims via an Auth0 Action
+  (`https://yourapp.com/email`); a non-namespaced or colliding claim is silently dropped rather
+  than erroring.
+- Coarse permissions can ride in the token (Auth0 RBAC populates a `permissions` array).
+  Anything per-object — "is this invoice this user's?" — is a query in the API.

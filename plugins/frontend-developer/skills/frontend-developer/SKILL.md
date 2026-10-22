@@ -153,4 +153,8 @@ handlers, browser APIs, or hooks like `usePathname`/`useSearchParams`/`useAction
 | `references/testing.md` | Writing tests or setting up Vitest/RTL/MSW/Playwright |
 | `references/tooling.md` | Bootstrapping configs, scripts, Tailwind v4, ESLint, CI |
 
-Config templates to copy verbatim live in `assets/` — see `references/tooling.md`.
+**`assets/example/` is a complete, verified reference implementation** — proxy, data layer,
+cached and per-user reads, forms, metadata, sitemap and 15 tests, all building green. Copy from
+it rather than reassembling these patterns from prose; `assets/example/README.md` maps each file
+to the pattern it demonstrates. Config templates to copy verbatim are in `assets/` itself — see
+`references/tooling.md`.

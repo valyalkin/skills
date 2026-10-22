@@ -1,5 +1,7 @@
 # Project structure
 
+A working version of everything below is in `../assets/example/` — copy from it.
+
 The layout mirrors `vercel/next-learn/dashboard/final-example`, minus everything the backend
 owns. Keep it; it is the convention this project is reviewed against.
 
@@ -28,6 +30,7 @@ app/
     button.tsx               # shared primitives live flat in app/ui/
     search.tsx
     skeletons.tsx
+    button.tsx               # shared primitive
     search-form.tsx          # next/form submit search (server component)
     <feature>/
       table-section.tsx      # async boundary: awaits searchParams, renders the table
@@ -37,6 +40,7 @@ app/
       buttons.tsx            # small link/action buttons for the feature
       breadcrumbs.tsx
       pagination.tsx
+      submit-button.tsx      # useFormStatus pending state
       status.tsx
   lib/
     api-schema.d.ts          # GENERATED from the OpenAPI spec - never edit

@@ -1,0 +1,70 @@
+openapi: 3.0.3
+info: { title: Acme API, version: '1.0.0' }
+paths:
+  /invoices:
+    get:
+      parameters:
+        - { name: query, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                {
+                  type: array,
+                  items: { $ref: '#/components/schemas/InvoicesTableRow' },
+                }
+  /customers:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                {
+                  type: array,
+                  items: { $ref: '#/components/schemas/Customer' },
+                }
+  /invoices/{id}:
+    get:
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invoice' }
+components:
+  schemas:
+    InvoiceStatus:
+      type: string
+      enum: [pending, paid]
+    Customer:
+      type: object
+      required: [id, name, email]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string }
+        image_url: { type: string }
+    Invoice:
+      type: object
+      required: [id, customer_id, amount, status]
+      properties:
+        id: { type: string }
+        customer_id: { type: string }
+        amount: { type: integer }
+        status: { $ref: '#/components/schemas/InvoiceStatus' }
+    InvoicesTableRow:
+      type: object
+      required: [id, name, email, amount, date, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string }
+        amount: { type: integer }
+        date: { type: string }
+        status: { $ref: '#/components/schemas/InvoiceStatus' }

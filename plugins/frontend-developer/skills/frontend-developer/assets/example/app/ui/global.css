@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+
+@plugin '@tailwindcss/forms';
+
+/* Design tokens. The v4 equivalent of the next-learn example's tailwind.config.ts
+   `theme.extend` block — add project tokens here, never in component class strings. */
+@theme {
+  --color-blue-400: #2589fe;
+  --color-blue-500: #0070f3;
+  --color-blue-600: #2f6feb;
+
+  --grid-template-columns-13: repeat(13, minmax(0, 1fr));
+
+  --animate-shimmer: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}

@@ -24,9 +24,9 @@ Then:
 3. Merge the `scripts` block from `package.scripts.json` into `package.json`, then install the
    `dependencies` and `devDependencies` it lists. `create-next-app` pins `@types/node@^20`,
    which Vitest 5 rejects — install `@types/node@^24`.
-4. Create `app/lib/{env,api,auth0,auth,data,actions,definitions,utils}.ts`, `app/ui/fonts.ts`,
-   `proxy.ts` (copy `../assets/proxy.ts`), `mocks/{handlers,server}.ts`, `e2e/`, and
-   `.env.example` (copy `../assets/env.example`).
+4. Copy the app skeleton from `../assets/example/` — `proxy.ts`, `app/lib/*`, `app/ui/*`,
+   `mocks/*`, `contracts/api.yaml`, `e2e/*` — and strip the invoice domain back to yours. Copy
+   `../assets/env.example` to `.env.example`.
 5. Metadata: `title.template` + `metadataBase` in `app/layout.tsx`, plus `app/icon.png`,
    `app/opengraph-image.tsx`, `app/sitemap.ts`, `app/robots.ts` (`metadata.md`).
 6. Commit the backend's spec to `contracts/api.yaml` and run `pnpm generate:api`.
@@ -288,6 +288,23 @@ One workflow, one job, in this order so the cheapest check fails first:
 
 Run it on pull requests and on `main`. A red CI is a blocking defect, not a flake to retry.
 
+## Build-time API reachability
+
+`next build` prerenders cached reads, so **a `'use cache'` function with no request dependency
+is executed during the build** and the API must be reachable from wherever the build runs. If it
+is not, the build fails with `ECONNREFUSED` rather than falling back to dynamic rendering.
+
+Pick one per read:
+
+- **Shared, public data** → cache it, and make the API reachable from CI (a deployed
+  environment, or a mock server started by the build step).
+- **Per-user or per-tenant data** → leave it uncached behind `<Suspense>`. It then runs at
+  request time and the build never calls the API. `fetchCustomers` in `../assets/example/` is
+  this case.
+
+Anything behind `searchParams`, `params` or `cookies()` is already deferred to request time, so
+it is never a build-time dependency.
+
 ## Verified toolchain
 
 The asset configs and every pattern in these references were smoke-tested end to end on
@@ -310,6 +327,9 @@ strict a11y rule set, pre-commit hooks and 13 tests, with `typecheck`, `lint`, `
 | openapi-typescript | 7.13.0 |
 | eslint-plugin-jsx-a11y | strict set, 33 rules |
 | husky / lint-staged | 9.x / 17.6.0 |
+
+The reference implementation in `../assets/example/` is that same verified app: 15 tests, all
+five gates green, dashboard routes partially prerendered.
 | eslint / eslint-config-next | 9.39 / 16.4.2 |
 
 If an installed major differs, trust the tool's own error message over this guide, fix the
