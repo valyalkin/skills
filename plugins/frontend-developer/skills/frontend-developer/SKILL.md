@@ -37,7 +37,9 @@ Never add a database client, an ORM, SQL, a seed route, or password hashing here
   per-user data.
 - **Auth is Auth0, tokens stay server-side.** The session lives in an encrypted HttpOnly
   cookie, access tokens are attached server-side and never reach client JavaScript; protected
-  segments are gated in `proxy.ts`; the API validates every token.
+  segments are gated in `proxy.ts`; the API validates every token. Never pass a token or the
+  `session` object to a client component — props are serialized into the RSC payload the
+  browser receives.
 - **Every route carries metadata.** A `title` at minimum, `robots: { index: false }` behind
   auth.
 
@@ -128,7 +130,7 @@ handlers, browser APIs, or hooks like `usePathname`/`useSearchParams`/`useAction
 - [ ] Loading and error states exist for anything that awaits data.
 - [ ] Labels, focus states and keyboard paths work; errors are announced.
 - [ ] Metadata set; authed routes marked `index: false`.
-- [ ] Per-user data uncached; tokens never crossed into client code.
+- [ ] Per-user data uncached; no token or `session` passed across the client boundary.
 - [ ] No backend concerns (DB, ORM, SQL, password handling) added to this repo.
 
 ## References

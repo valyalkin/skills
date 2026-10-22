@@ -244,6 +244,68 @@ and that a 401 redirects. `app/lib/env.ts` validates the Auth0 variables at impo
 `**/auth/**` or run against a dedicated Auth0 test tenant with a seeded user; do not point E2E
 at a real tenant with real credentials.
 
+## What this does not protect against
+
+The SDK covers protocol mechanics: cookie flags, PKCE and state, session encryption, refresh
+rotation, logout. Everything below is still yours, and is where real incidents come from.
+
+**1. Leaking the token into the RSC payload.** Props passed from a Server Component to a
+Client Component are serialized into the flight data that ships to the browser. HttpOnly
+protects nothing if you hand the token across that boundary:
+
+```tsx
+// WRONG - accessToken is now readable in the page's RSC payload
+const { token } = await auth0.getAccessToken();
+return <InvoiceWidget accessToken={token} />;
+
+// RIGHT - fetch on the server, pass only the data the component renders
+const summary = await fetchMyInvoiceSummary();
+return <InvoiceWidget summary={summary} />;
+```
+
+The same applies to the whole `session` object: pass `session.user.name`, not `session`. A
+client component never needs a token, because it never calls the API directly.
+
+**2. XSS, which HttpOnly does not stop.** An HttpOnly cookie cannot be *read* by injected
+script, but injected script can still make authenticated requests from the victim's browser —
+the cookie rides along. A Content Security Policy is the control that matters here; see
+"Security headers" in `tooling.md`.
+
+**3. Token validation at the API.** The proxy gate is a UX convenience and bypassable. The
+backend must verify signature, `iss`, `aud` and `exp`, and check scopes, on every request —
+including per-object authorization ("is this invoice this user's?"). If the API trusts a header
+or an unvalidated token, nothing in this app saves it.
+
+**4. Logout is not revocation.** `/auth/logout` clears the local session and ends the Auth0
+session, but a previously issued refresh token stays valid until it expires or is revoked, and
+the backend may hold its own session. If "sign out everywhere" is a requirement, revoke
+explicitly and invalidate backend sessions — do not assume the cookie clear did it.
+
+**5. Operational hygiene.** Never log request headers from `authedFetch` (that logs bearer
+tokens). Keep `returnTo` relative — an absolute URL from a query parameter is an open redirect.
+Rotate `AUTH0_SECRET` deliberately: it invalidates every session. Turn on Auth0's attack
+protection (MFA, breached-password detection, brute-force lockout) in the dashboard; the SDK
+does not enable it for you.
+
+**6. The dependency itself.** Both this SDK and its alternatives have had advisories —
+session-cookie CDN caching and missing session invalidation in this one's 4.x line, fail-open
+auth checks and unbound PKCE cookies in Auth.js. Pin at or above the current version, enable
+Dependabot, and treat an auth-library advisory as a same-week upgrade.
+
+## Why this SDK, and not Auth.js/NextAuth
+
+For an Auth0-committed project calling a separate API, `@auth0/nextjs-auth0` is the
+vendor-documented path and the conventional one. Auth.js is a session + OAuth-client library,
+not an identity provider: used here it would be an OAuth *client of* Auth0, and its docs state
+plainly that automatic refresh-token rotation is **not built in** — you would implement it in
+the `jwt` callback, including the single-use-refresh race. Its App Router API is also still
+`5.0.0-beta`, and the project has moved under Better Auth.
+
+Auth.js is a good fit for a Next app that owns its own data and session with no separate API.
+That is not this architecture. Do not copy the Next.js tutorial's chapter 14 (NextAuth +
+credentials + bcrypt against your own Postgres): it hands you password storage, lockout, MFA
+and breach detection as homework, which is exactly what Auth0 is there to do.
+
 ## What stays in the backend
 
 Password storage, user records, roles and permissions, token validation, and any

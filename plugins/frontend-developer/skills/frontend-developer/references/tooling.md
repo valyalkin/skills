@@ -156,6 +156,60 @@ The Auth0 set is `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH
 Logout URL in the Auth0 dashboard; the application type is **Regular Web Application**.
 `vitest.setup.ts` must define the same required variables.
 
+## Security headers
+
+Set them once in `next.config.ts` so every response carries them:
+
+```ts
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' 'strict-dynamic' 'wasm-unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  'upgrade-insecure-requests',
+].join('; ');
+
+const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'Content-Security-Policy', value: csp },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+        ],
+      },
+    ];
+  },
+};
+```
+
+CSP is the control that limits the damage an XSS can do — an HttpOnly session cookie does not
+(`auth.md`). Notes:
+
+- **Use a static policy, not per-request nonces.** Next's nonce recipe generates the nonce in
+  `proxy.ts`, and its own docs say nonces *require dynamic rendering* — which throws away the
+  prerendered shells this project is built around. `'strict-dynamic'` without a nonce keeps
+  every route prerenderable; verified: routes stay `○`/`◐` with these headers in place.
+- `style-src 'unsafe-inline'` is needed while Next injects inline styles; keep it off
+  `script-src`.
+- Development needs `'unsafe-eval'` in `script-src` (React uses eval for error stacks); gate it
+  on `NODE_ENV !== 'production'`.
+- Widen `connect-src` if the browser talks to anything cross-origin, and `img-src` for remote
+  image hosts — which also need `images.remotePatterns`.
+- Roll it out with `Content-Security-Policy-Report-Only` first on an existing app.
+
 ## CI
 
 One workflow, one job, in this order so the cheapest check fails first:
