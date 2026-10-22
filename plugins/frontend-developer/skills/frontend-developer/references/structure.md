@@ -59,9 +59,10 @@ Deliberately absent, because the API owns it: `app/seed/`, `app/query/`,
 roles. If a task seems to need one of these, it belongs in the backend repo — say so rather
 than adding it here.
 
-Authentication is **not** in that list. This app is the BFF: it owns the session cookie, gates
-protected segments in `proxy.ts`, and forwards an access token to the API. There is no login
-form to build (Auth0 Universal Login is hosted) and no `auth.config.ts`; see `auth.md`.
+Authentication is **not** in that list. The session is this app's job: it owns the Auth0 session
+cookie, gates protected segments in `proxy.ts`, and attaches an access token when it calls the
+API — the BFF token-handler pattern, applied to tokens only. There is no login form to build
+(Auth0 Universal Login is hosted) and no `auth.config.ts`; see `auth.md`.
 
 Route handlers under `app/api/` are allowed **only** as a thin edge: forwarding a webhook, or
 proxying a call a client component genuinely must make. They never contain business logic. The

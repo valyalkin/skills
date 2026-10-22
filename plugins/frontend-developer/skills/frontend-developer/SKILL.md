@@ -10,8 +10,10 @@ Build and extend Next.js frontends structured like the
 [next-learn dashboard example](https://github.com/vercel/next-learn/tree/main/dashboard/final-example):
 `app/` holds routes, `app/ui/` holds components, `app/lib/` holds data access and types.
 
-**The backend is a separate service, and this app is the BFF.** It renders UI, owns the user
-session (Auth0, cookie-based), and calls the API server-side with an access token attached.
+**The backend is a separate service.** This project renders UI and calls that API from the
+server. It is not a BFF: there is no proxy or aggregation layer in front of the API, and
+components fetch from it directly. Only **token custody** follows the BFF (token-handler)
+pattern — the Auth0 session lives in a server-side cookie and the browser never holds a token.
 Never add a database client, an ORM, SQL, a seed route, or password hashing here.
 
 ## Non-negotiables
@@ -33,8 +35,9 @@ Never add a database client, an ORM, SQL, a seed route, or password hashing here
   cacheable reads declare `'use cache'` with `cacheTag` + `cacheLife`, writes invalidate with
   `updateTag`, and everything else is dynamic and lives inside `<Suspense>`. Never cache
   per-user data.
-- **Auth is Auth0 + BFF.** Tokens stay in the server session cookie and never reach client
-  JavaScript; protected segments are gated in `proxy.ts`; the API validates every token.
+- **Auth is Auth0, tokens stay server-side.** The session lives in an encrypted HttpOnly
+  cookie, access tokens are attached server-side and never reach client JavaScript; protected
+  segments are gated in `proxy.ts`; the API validates every token.
 - **Every route carries metadata.** A `title` at minimum, `robots: { index: false }` behind
   auth.
 

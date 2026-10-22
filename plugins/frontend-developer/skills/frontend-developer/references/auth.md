@@ -1,12 +1,20 @@
-# Authentication: Auth0 with the BFF pattern
+# Authentication: Auth0, with server-side token custody
 
-This app is the **BFF** (backend for frontend). It owns the user session; the API behind it
-owns the data. Tokens live in an encrypted, HttpOnly session cookie and never reach the
-browser's JavaScript. Every call to the API happens server-side with an access token attached.
+Auth here follows the **BFF (token-handler) pattern**, and that is the only sense in which this
+app is a BFF: it owns the user session, and tokens live in an encrypted, HttpOnly cookie that
+the browser's JavaScript cannot read. Every API call carrying that token happens on the server.
 
 ```
-browser ──session cookie──▶ Next (BFF) ──Bearer access token──▶ backend API
+browser ──session cookie──▶ Next server ──Bearer access token──▶ backend API
 ```
+
+What this is *not*: a BFF layer that proxies or aggregates the API for the browser. Server
+Components call the API directly and `app/lib/data.ts` shapes the result for the UI; there is
+no `app/api/*` tier in between (see `structure.md`). The pattern is applied to tokens because
+the alternative — a token in `localStorage` or readable JS memory — is exfiltrable by any XSS.
+If a future requirement genuinely needs a browser-facing endpoint (a client component that must
+fetch, or one call that fans out to several API calls), that is a thin route handler, added
+deliberately, not the default shape of the app.
 
 The SDK is `@auth0/nextjs-auth0` v4 (v5 of the API surface; `Auth0Client` + proxy mount). It
 handles Universal Login, the callback, rolling sessions, refresh and logout. Do not hand-roll
