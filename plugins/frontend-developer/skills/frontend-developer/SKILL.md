@@ -19,10 +19,13 @@ Never add a database client, an ORM, SQL, a seed route, or password hashing here
 ## Non-negotiables
 
 - **TypeScript only.** `strict: true`, no `any`, no `@ts-ignore`, no new `.js`/`.jsx` files.
-  Types for API payloads live in `app/lib/definitions.ts`.
+- **API types are generated, never hand-written.** `pnpm generate:api` regenerates
+  `app/lib/api-schema.d.ts` from the backend's OpenAPI spec; `app/lib/definitions.ts` only
+  aliases it. Declaring a payload shape by hand is how the frontend silently drifts from the API.
 - **Tests ship with the code.** Every new component, util and data function gets a test; every
   new user-visible flow gets a Playwright spec. A change with no test is not done.
-- **Lint and format are gates, not suggestions.** ESLint flat config + Prettier.
+- **Lint and format are gates, not suggestions.** ESLint flat config (including the strict
+  `jsx-a11y` rule set) + Prettier, enforced on commit by husky + lint-staged and again in CI.
 - **Every change leaves this green:**
   ```sh
   pnpm typecheck && pnpm lint && pnpm test
@@ -54,7 +57,8 @@ Never add a database client, an ORM, SQL, a seed route, or password hashing here
 | `app/<segment>/not-found.tsx` | 404 for that segment | Paired with `notFound()` in the page |
 | `app/ui/<feature>/<component>.tsx` | Feature components | kebab-case file, default-exported component |
 | `app/ui/<shared>.tsx` | Cross-feature UI | e.g. `button.tsx`, `search.tsx`, `skeletons.tsx`, `fonts.ts` |
-| `app/lib/definitions.ts` | Domain types | Hand-written; the single source of payload shapes |
+| `app/lib/api-schema.d.ts` | Generated API types | `pnpm generate:api`; never edit, always commit |
+| `app/lib/definitions.ts` | Readable aliases + UI-only types | Aliases the generated schemas |
 | `app/lib/api.ts` | The one `fetch` wrapper | Transport only: base URL, headers, `ApiError`; starts with `import 'server-only'` |
 | `app/lib/auth0.ts` | The `Auth0Client` singleton | `audience` + `scope` for the API |
 | `app/lib/auth.ts` | `requireSession`, `authedFetch` | Token attachment and 401 handling |
@@ -101,10 +105,12 @@ top-level `components/`, `hooks/`, `services/` or `src/` directory — this layo
    (the `State` type), calls the API on success, then `updateTag(...)` and `redirect(...)`.
 3. The form is a small `'use client'` component in `app/ui/<feature>/` using
    `useActionState(action, initialState)` and a `useFormStatus` submit button.
-4. Wire accessibility: every input has a `<label htmlFor>`, `aria-describedby="<field>-error"`,
+4. Submit-only search or filters are a `next/form` server component, not a client component
+   (`references/components.md`). Live-as-you-type search is the exception that justifies one.
+5. Wire accessibility: every input has a `<label htmlFor>`, `aria-describedby="<field>-error"`,
    and an `aria-live="polite" aria-atomic="true"` error container.
-5. The form must work without JavaScript — no `onSubmit` handler, use `<form action={formAction}>`.
-6. Tests: unit-test the action's validation branches, RTL-test that field errors render and are
+6. The form must work without JavaScript — no `onSubmit` handler, use `<form action={formAction}>`.
+7. Tests: unit-test the action's validation branches, RTL-test that field errors render and are
    announced, Playwright-test the happy path.
 
 See `references/forms-and-actions.md` for the full pattern.
@@ -119,6 +125,7 @@ handlers, browser APIs, or hooks like `usePathname`/`useSearchParams`/`useAction
 - Never pass secrets, functions or class instances across the boundary — props must serialize.
 - Keep state in the URL (`?query=`, `?page=`) rather than in React state when it should survive
   reload and be shareable. See `references/components.md`.
+- The React Compiler is on: never hand-write `useMemo`, `useCallback` or `React.memo`.
 - Only `NEXT_PUBLIC_*` env vars exist in client code. API base URLs and tokens are server-only.
 - Read the session only where the user is actually rendered, inside `<Suspense>` — never in a
   layout's shell, or the whole subtree becomes dynamic.

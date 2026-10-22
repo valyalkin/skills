@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
 import nextVitals from 'eslint-config-next/core-web-vitals';
 import nextTs from 'eslint-config-next/typescript';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import testingLibrary from 'eslint-plugin-testing-library';
 
 // Next 16+ ships flat configs as direct imports. On Next 15, import FlatCompat from
@@ -8,6 +9,14 @@ import testingLibrary from 'eslint-plugin-testing-library';
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // eslint-config-next already registers the jsx-a11y plugin but enables only
+    // a handful of its rules, so take the strict rule set without re-declaring
+    // the plugin (which ESLint rejects as a redefinition).
+    name: 'project/a11y-strict',
+    files: ['**/*.tsx'],
+    rules: jsxA11y.flatConfigs.strict.rules,
+  },
   {
     name: 'project/type-aware',
     files: ['**/*.ts', '**/*.tsx'],

@@ -7,7 +7,8 @@ Builds Next.js App Router frontends in TypeScript, structured like the
 Assumes the backend is a **separate service**: a typed `fetch` wrapper against that API called
 from the server, Auth0 for the user session following the BFF token-handler pattern (tokens
 stay in a server-side cookie, protected segments gated in `proxy.ts`), and no database clients
-or ORMs. Targets Next 16
+or ORMs, and API payload types generated from the backend's OpenAPI spec rather than
+hand-written. Targets Next 16
 Cache Components — `'use cache'` with `cacheTag`/`cacheLife`, `updateTag` after writes, and
 partially prerendered pages. TypeScript strict mode, tests (Vitest + React Testing Library +
 Playwright) and linting (ESLint flat config + Prettier) are treated as gates, not options.

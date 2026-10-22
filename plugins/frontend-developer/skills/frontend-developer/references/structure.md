@@ -28,6 +28,7 @@ app/
     button.tsx               # shared primitives live flat in app/ui/
     search.tsx
     skeletons.tsx
+    search-form.tsx          # next/form submit search (server component)
     <feature>/
       table-section.tsx      # async boundary: awaits searchParams, renders the table
       table.tsx              # async server component that fetches via app/lib/data.ts
@@ -38,14 +39,17 @@ app/
       pagination.tsx
       status.tsx
   lib/
+    api-schema.d.ts          # GENERATED from the OpenAPI spec - never edit
     env.ts                   # validated server env ('server-only')
     api.ts                   # the single fetch wrapper, transport only ('server-only')
     auth0.ts                 # Auth0Client singleton
     auth.ts                  # requireSession(), authedFetch()
     data.ts                  # read functions, 'use cache' where cacheable
     actions.ts               # 'use server' write actions
-    definitions.ts           # domain types
+    definitions.ts           # readable aliases over api-schema.d.ts + UI-only types
     utils.ts                 # pure helpers
+contracts/
+  api.yaml                   # the backend's OpenAPI spec, committed
 e2e/
   <flow>.spec.ts
 public/                      # static images only
@@ -103,7 +107,7 @@ only reason `(overview)/` exists in the example.
    renders the table with plain props.
 4. `app/ui/customers/table.tsx` — async Server Component: `const customers = await fetchFilteredCustomers(query)`,
    renders a desktop `<table>` and a mobile card list (the example does both; keep that).
-5. `app/lib/definitions.ts` — add `Customer` and the formatted row type.
+5. `app/lib/definitions.ts` — alias `Customer` and the formatted row type.
 6. `app/lib/data.ts` — `fetchFilteredCustomers(query)` declaring `'use cache'`,
    `cacheTag('customers')` and `cacheLife('minutes')`, then calling
    `apiFetch<Customer[]>('/customers?query=...')` and mapping money with `formatCurrency` from

@@ -26,6 +26,52 @@ Patterns that keep the boundary small:
 - A client component that calls `useSearchParams` needs a `<Suspense>` boundary around it, or
   the route cannot be prerendered — see `data-layer.md`.
 
+## Search and filter forms: `next/form`
+
+For anything the user **submits**, use `next/form`. It is a server component — no `'use client'`,
+no hooks — it prefetches the target route, does a client-side navigation on submit, and works
+before hydration:
+
+```tsx
+import Form from 'next/form';
+
+export default function SearchForm({
+  action,
+  placeholder,
+  defaultQuery,
+}: {
+  action: string;
+  placeholder: string;
+  defaultQuery?: string;
+}) {
+  return (
+    <Form action={action} className="relative flex flex-1">
+      <label htmlFor="query" className="sr-only">
+        Search
+      </label>
+      <input id="query" name="query" defaultValue={defaultQuery} placeholder={placeholder} />
+      <button type="submit" className="sr-only">
+        Search
+      </button>
+    </Form>
+  );
+}
+```
+
+With a string `action`, the field names become the query string (`?query=acme`) — which is
+exactly the URL-as-state model below, with no client JavaScript at all.
+
+**Choose between the two:**
+
+| Need | Use |
+| --- | --- |
+| Submit-based search or filters | `next/form` — fewer moving parts, progressive enhancement |
+| Results that update as the user types | the debounced client component below |
+
+Live-as-you-type search genuinely needs a client component and therefore JavaScript; that is a
+deliberate trade, not the default. Reach for it when the interaction demands it, and prefer
+`next/form` otherwise.
+
 ## State belongs in the URL
 
 Anything a user would expect to survive reload, share or bookmark — search text, page number,
@@ -71,6 +117,11 @@ export default function Search({ placeholder }: { placeholder: string }) {
 
 Keep genuine UI-only state (a menu open/closed, an optimistic row) in React. `useOptimistic` is
 the right tool for instant feedback on an action; `useTransition` for non-urgent updates.
+
+**Do not hand-write `useMemo`, `useCallback` or `React.memo`.** The React Compiler is enabled
+(`reactCompiler: true`), so memoization is applied automatically and correctly. Manual
+memoization is now noise at best and a stale-dependency bug at worst. If profiling shows a real
+problem the compiler missed, fix it deliberately and say why in a comment.
 
 ## Composition
 

@@ -29,8 +29,11 @@ Then:
    `.env.example` (copy `../assets/env.example`).
 5. Metadata: `title.template` + `metadataBase` in `app/layout.tsx`, plus `app/icon.png`,
    `app/opengraph-image.tsx`, `app/sitemap.ts`, `app/robots.ts` (`metadata.md`).
-6. `pnpm exec playwright install --with-deps chromium`.
-7. Verify: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
+6. Commit the backend's spec to `contracts/api.yaml` and run `pnpm generate:api`.
+7. `pnpm exec husky init`, then copy `../assets/husky/pre-commit` to `.husky/pre-commit`
+   (executable) and `../assets/.lintstagedrc.json` to the root.
+8. `pnpm exec playwright install --with-deps chromium`.
+9. Verify: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
 
 ## Scripts
 
@@ -49,6 +52,8 @@ Every project has exactly these, and they must all pass:
 | `test` | `vitest run` |
 | `test:watch` | `vitest` |
 | `test:e2e` | `playwright test` |
+| `generate:api` | `openapi-typescript contracts/api.yaml -o app/lib/api-schema.d.ts` |
+| `prepare` | `husky` (installs the git hooks after `pnpm install`) |
 
 `next lint` was removed in Next 16, and `NextConfig` no longer accepts an `eslint` key — lint
 is its own step, not part of `next build`.
@@ -69,6 +74,13 @@ the correct escape hatch, and `satisfies` is better than a cast for literal obje
 `eslint-config-next/typescript` directly (Next 16+; on Next 15 go through `FlatCompat` from
 `@eslint/eslintrc`), plus:
 
+- **`eslint-plugin-jsx-a11y`, strict.** `eslint-config-next` registers this plugin but enables
+  only 6 of its rules; the strict set is 33. Since the skill demands labels, keyboard paths and
+  semantic elements, lint should enforce them — verified that strict catches
+  `click-events-have-key-events`, `no-static-element-interactions` and `anchor-is-valid`, none
+  of which the default 6 do. Apply `jsxA11y.flatConfigs.strict.rules` **without** spreading the
+  whole config: `eslint-config-next` already declares the plugin and ESLint rejects the
+  redefinition with `Cannot redefine plugin "jsx-a11y"`.
 - `eslint-plugin-testing-library` on `**/*.test.tsx` — catches the RTL misuse that makes tests
   flaky.
 - `@typescript-eslint/no-floating-promises` and `no-misused-promises` as errors (requires the
@@ -79,6 +91,17 @@ the correct escape hatch, and `satisfies` is better than a cast for literal obje
 
 Fix lint errors; do not add disable comments. A genuine exception gets a one-line comment saying
 why, on that line only.
+
+## React Compiler
+
+Enabled (`reactCompiler: true` in `assets/next.config.ts`, with the
+`babel-plugin-react-compiler` devDependency). Next runs it through an SWC pass that only visits
+files with JSX or hooks, so the build cost is small and localised.
+
+The payoff for this project is less about raw speed — it is server-first, with few client
+components — and more about removing a whole class of judgment calls and bugs: **no hand-written
+`useMemo`, `useCallback` or `React.memo`**, and no stale-dependency mistakes from getting them
+wrong. If build time ever becomes a problem, it is one line to remove.
 
 ## Prettier
 
@@ -210,12 +233,50 @@ CSP is the control that limits the damage an XSS can do — an HttpOnly session 
   image hosts — which also need `images.remotePatterns`.
 - Roll it out with `Content-Security-Policy-Report-Only` first on an existing app.
 
+## Pre-commit hooks
+
+Linting and formatting are gates, so they run before the commit, not only in CI. Husky +
+lint-staged, which is the conventional pairing:
+
+```sh
+pnpm add -D husky lint-staged
+pnpm exec husky init          # writes .husky/_ and sets core.hooksPath
+```
+
+`.husky/pre-commit` (copy `../assets/husky/pre-commit`, keep it executable):
+
+```sh
+pnpm exec lint-staged
+```
+
+`.lintstagedrc.json` (`../assets/.lintstagedrc.json`):
+
+```json
+{
+  "*.{ts,tsx,mts}": ["prettier --write", "eslint --max-warnings=0 --no-warn-ignored"],
+  "*.{json,md,css,yaml,yml}": ["prettier --write"]
+}
+```
+
+Verified behaviour: a staged file with a lint error **blocks** the commit and lint-staged
+reverts the working tree to its pre-commit state; a badly formatted but valid file is
+reformatted in place and the commit proceeds.
+
+- Only staged files are checked, so the hook stays fast as the project grows.
+- `prepare: husky` in `package.json` means hooks install themselves on `pnpm install` for
+  everyone who clones the repo.
+- Do not put `typecheck`, `test` or `build` in the hook — whole-project checks make committing
+  painful. They belong in CI, which stays the real gate.
+- The hook is a convenience, not a guarantee: `--no-verify` skips it, so CI must run the same
+  checks.
+
 ## CI
 
 One workflow, one job, in this order so the cheapest check fails first:
 
 ```yaml
 - run: pnpm install --frozen-lockfile
+- run: pnpm generate:api && git diff --exit-code app/lib/api-schema.d.ts   # schema not stale
 - run: pnpm typecheck
 - run: pnpm lint
 - run: pnpm format:check
@@ -230,9 +291,10 @@ Run it on pull requests and on `main`. A red CI is a blocking defect, not a flak
 ## Verified toolchain
 
 The asset configs and every pattern in these references were smoke-tested end to end on
-2026-10-20 — a scaffolded app with the Auth0 proxy, an authenticated API read, metadata,
-sitemap/robots and 13 tests, with `typecheck`, `lint`, `format:check`, `test` and `build` all
-green — against:
+2026-10-21 — a scaffolded app with the Auth0 proxy, an authenticated API read, OpenAPI-generated
+types, a `next/form` search, metadata, sitemap/robots, security headers, the React Compiler, the
+strict a11y rule set, pre-commit hooks and 13 tests, with `typecheck`, `lint`, `format:check`,
+`test` and `build` all green — against:
 
 | Package | Version |
 | --- | --- |
@@ -245,6 +307,9 @@ green — against:
 | msw | 3.0.3 |
 | @playwright/test | 1.64.1 |
 | @auth0/nextjs-auth0 | 4.32.1 |
+| openapi-typescript | 7.13.0 |
+| eslint-plugin-jsx-a11y | strict set, 33 rules |
+| husky / lint-staged | 9.x / 17.6.0 |
 | eslint / eslint-config-next | 9.39 / 16.4.2 |
 
 If an installed major differs, trust the tool's own error message over this guide, fix the

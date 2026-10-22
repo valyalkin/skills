@@ -89,6 +89,52 @@ Rules:
   shape is unstable. For an API you own with a shared contract, the type assertion is enough —
   do not scatter runtime validation through `data.ts`.
 
+## Types come from the API's OpenAPI schema
+
+The backend owns the contract, so the frontend **generates** its types instead of hand-writing
+them. Hand-written types silently drift; a generated one turns a backend rename into a compile
+error — verified: renaming a field in the schema fails `pnpm typecheck` at the component that
+reads it.
+
+```sh
+pnpm add -D openapi-typescript
+pnpm generate:api   # openapi-typescript contracts/api.yaml -o app/lib/api-schema.d.ts
+```
+
+Point it at a committed copy of the spec (`contracts/api.yaml`) or the live
+`$API_BASE_URL/openapi.json` — a committed copy is preferable, because then the contract the
+build used is in git and CI needs no network.
+
+`app/lib/api-schema.d.ts` is generated: never edit it, and commit it so CI and editors agree.
+`app/lib/definitions.ts` becomes a thin alias layer giving the UI readable names:
+
+```ts
+import type { components } from '@/app/lib/api-schema';
+
+type Schemas = components['schemas'];
+
+export type InvoiceStatus = Schemas['InvoiceStatus'];
+export type Invoice = Schemas['Invoice'];
+export type InvoicesTableRow = Schemas['InvoicesTableRow'];
+
+/** A view type the API does not define: the UI's own concern. */
+export type CustomerField = { id: string; name: string };
+```
+
+Rules:
+
+- One alias per type the UI renders. Never redeclare a shape by hand "to keep it simple" —
+  that is the drift this exists to prevent.
+- Response types for `apiFetch<T>` come from these aliases, or straight from
+  `paths['/invoices']['get']['responses'][200]['content']['application/json']` when a response
+  has no named schema.
+- Types the API has no opinion about (form view-models, derived display rows) are declared by
+  hand in `definitions.ts`, clearly separated from the aliases.
+- Regenerate whenever the backend ships a change, and in CI: run `pnpm generate:api` then
+  `git diff --exit-code app/lib/api-schema.d.ts`, so a stale checked-in schema fails the build
+  rather than producing types that quietly disagree with production.
+- `openapi-typescript` emits types only — no runtime, no client. Transport stays `apiFetch`.
+
 ## `app/lib/data.ts` — read functions
 
 ```ts
