@@ -1,0 +1,25 @@
+# Activated by `./gradlew bootRun --args='--spring.profiles.active=local'`.
+# The datasource is still absent on purpose: spring-boot-docker-compose starts compose.yaml and
+# injects the connection details, including the randomly assigned host port.
+spring:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  docker:
+    compose:
+      enabled: true
+      lifecycle-management: start_and_stop
+      file: compose.yaml
+
+invoices:
+  auth:
+    issuer: http://localhost:9000/
+    audience: http://localhost:8080
+    jwk-set-uri: http://localhost:9000/.well-known/jwks.json
+
+logging:
+  level:
+    com.example.invoices: DEBUG
+    org.springframework.jdbc.core: DEBUG

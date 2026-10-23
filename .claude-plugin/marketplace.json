@@ -23,6 +23,15 @@
       },
       "source": "./plugins/frontend-developer",
       "category": "development"
+    },
+    {
+      "name": "backend-developer",
+      "description": "Builds Kotlin Spring Boot backends with a fixed package layout, RFC 9457 ProblemDetail error handling, JPA with Flyway migrations, Auth0 JWT validation, and mandatory ktlint, integration tests and 90% coverage gates",
+      "author": {
+        "name": "Alexander Valyalkin"
+      },
+      "source": "./plugins/backend-developer",
+      "category": "development"
     }
   ]
 }

@@ -1,0 +1,79 @@
+# The only configuration file. Everything environment-specific arrives as an override:
+#   * locally          -> application-local.yaml + compose.yaml (see configuration.md)
+#   * in Kubernetes    -> env vars projected from a ConfigMap, e.g. SPRING_DATASOURCE_URL
+#   * secrets          -> a Secret, never a ConfigMap, never this file
+#
+# Note what is absent: there is no spring.datasource block. Locally the docker-compose support
+# supplies it, in tests Testcontainers does, in production the ConfigMap/Secret does. A default
+# here would silently win over the compose-provided one and point the app at the wrong database.
+spring:
+  application:
+    name: invoices
+  threads:
+    virtual:
+      enabled: true
+  jpa:
+    hibernate:
+      # Flyway owns the schema. `validate` makes Hibernate assert that the entities match the
+      # migrated schema and refuse to start otherwise; it must never be `update` or `create`.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+        # Fail fast on N+1 rather than discovering it in production.
+        query.fail_on_pagination_over_collection_fetch: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # An applied migration is immutable; this makes tampering a startup failure.
+    validate-on-migrate: true
+
+server:
+  error:
+    # Nothing should ever reach the whitelabel page: GlobalExceptionHandler answers everything.
+    whitelabel:
+      enabled: false
+  shutdown: graceful
+
+invoices:
+  auth:
+    # SecurityConfig builds the JwtDecoder from these; there is no
+    # spring.security.oauth2.resourceserver block, because jwk-set-uri there would resolve the
+    # issuer's metadata eagerly at startup. See config/SecurityConfig.kt.
+    issuer: ${AUTH0_ISSUER:https://example.eu.auth0.com/}
+    audience: ${AUTH0_AUDIENCE:https://api.example.com}
+    jwk-set-uri: ${AUTH0_JWK_SET_URI:https://example.eu.auth0.com/.well-known/jwks.json}
+  payment-gateway:
+    base-url: ${PAYMENT_GATEWAY_BASE_URL:https://payments.example.com}
+    connect-timeout: 2s
+    read-timeout: 5s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      # Kubernetes probes: /actuator/health/liveness and /actuator/health/readiness.
+      probes:
+        enabled: true
+      show-details: never
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+
+logging:
+  level:
+    root: INFO
+    com.example.invoices: INFO

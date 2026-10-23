@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # ktlintCheck + detekt + test + koverVerify. GitHub-hosted runners provide Docker, so the
+      # Testcontainers-backed integration tests run unchanged.
+      - run: ./gradlew check
+
+      # A contract change that was not regenerated is a build failure: the frontend generates its
+      # types from this file, so a stale one is worse than none.
+      - name: contracts/api.yaml is up to date
+        run: git diff --exit-code contracts/api.yaml
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            build/reports/tests
+            build/reports/kover
+            build/reports/detekt
+            build/reports/ktlint

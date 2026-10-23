@@ -1,0 +1,6 @@
+# Only relevant when this example is copied out as a standalone project.
+build/
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+.idea/
+*.log

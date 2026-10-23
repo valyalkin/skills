@@ -1,0 +1,315 @@
+openapi: 3.1.0
+info:
+  title: Invoices API
+  description: "Errors are RFC 9457 problem+json. Each response documents the `type`\
+    \ URN it uses; clients branch on that, not on the message."
+  version: v1
+servers:
+- url: /
+  description: This service
+security:
+- bearerAuth: []
+tags:
+- name: Invoices
+  description: Raise and settle customer invoices
+paths:
+  /api/v1/invoices:
+    get:
+      tags:
+      - Invoices
+      summary: "List invoices, newest first"
+      operationId: list
+      parameters:
+      - name: status
+        in: query
+        description: Only invoices in this status
+        required: false
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - PAID
+      - name: pageable
+        in: query
+        required: true
+        schema:
+          $ref: "#/components/schemas/Pageable"
+      responses:
+        "200":
+          description: A page of invoices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageResponseInvoiceResponse"
+    post:
+      tags:
+      - Invoices
+      summary: Raise an invoice
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceRequest"
+        required: true
+      responses:
+        "201":
+          description: The invoice was created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "400":
+          description: "Validation failed (type: urn:problem:invoices:validation-failed)"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "409":
+          description: "A pending invoice already exists (type: urn:problem:invoices:duplicate-invoice)"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+  /api/v1/invoices/{id}/payment:
+    post:
+      tags:
+      - Invoices
+      summary: Pay an invoice
+      operationId: pay
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The settled invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "422":
+          description: "The invoice is already paid (type: urn:problem:invoices:invoice-not-payable)"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+        "503":
+          description: "The payment gateway is unavailable (type: urn:problem:invoices:upstream-unavailable)"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+  /api/v1/invoices/{id}:
+    get:
+      tags:
+      - Invoices
+      summary: Fetch one invoice
+      operationId: get
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceResponse"
+        "404":
+          description: "No invoice with that id (type: urn:problem:invoices:invoice-not-found)"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+  /error:
+    get:
+      tags:
+      - problem-error-controller
+      operationId: handleError
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+    put:
+      tags:
+      - problem-error-controller
+      operationId: handleError_2
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+    post:
+      tags:
+      - problem-error-controller
+      operationId: handleError_1
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+    delete:
+      tags:
+      - problem-error-controller
+      operationId: handleError_3
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+    options:
+      tags:
+      - problem-error-controller
+      operationId: handleError_6
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+    head:
+      tags:
+      - problem-error-controller
+      operationId: handleError_5
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+    patch:
+      tags:
+      - problem-error-controller
+      operationId: handleError_4
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+components:
+  schemas:
+    CreateInvoiceRequest:
+      type: object
+      description: A new invoice for a customer
+      properties:
+        customerId:
+          type: string
+          format: uuid
+          description: Customer the invoice is raised against
+          example: 6f1c7d4e-0f4a-4f1a-9a8e-2b9d2a3c4d5e
+        amountCents:
+          type: integer
+          format: int64
+          description: Amount in minor units (cents)
+          example: 2500
+          exclusiveMinimum: 0
+          maximum: 100000000
+      required:
+      - amountCents
+      - customerId
+    ProblemDetail:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+        properties:
+          type: object
+          additionalProperties: {}
+    InvoiceResponse:
+      type: object
+      description: An invoice
+      properties:
+        id:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        amountCents:
+          type: integer
+          format: int64
+          description: Amount in minor units (cents)
+          example: 2500
+        status:
+          type: string
+          enum:
+          - PENDING
+          - PAID
+        createdAt:
+          type: string
+          format: date-time
+          description: "RFC 3339 instant, always UTC"
+          example: 2026-10-23T09:15:00Z
+    Pageable:
+      type: object
+      properties:
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+        sort:
+          type: array
+          items:
+            type: string
+    PageResponseInvoiceResponse:
+      type: object
+      description: A page of results
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceResponse"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+  securitySchemes:
+    bearerAuth:
+      type: http
+      description: Auth0 access token for this API's audience
+      scheme: bearer
+      bearerFormat: JWT

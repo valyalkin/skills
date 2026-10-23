@@ -27,6 +27,7 @@ versions.
 | --- | --- | --- |
 | [`conventional-commits`](plugins/conventional-commits) | `conventional-commits` | Commit messages and PR titles in Conventional Commits form, derived from the staged diff |
 | [`frontend-developer`](plugins/frontend-developer) | `frontend-developer` | Next.js App Router frontends in TypeScript, structured like the next-learn dashboard example, with mandatory tests and linting |
+| [`backend-developer`](plugins/backend-developer) | `backend-developer` | Kotlin Spring Boot services with a fixed package layout, RFC 9457 ProblemDetail errors, Flyway-owned schema, and mandatory tests and coverage gates |
 
 ## How skills get used
 

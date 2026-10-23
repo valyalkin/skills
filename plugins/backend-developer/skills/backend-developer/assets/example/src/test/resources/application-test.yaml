@@ -1,0 +1,18 @@
+# Applied by AbstractIntegrationTest via @ActiveProfiles("test").
+# The datasource comes from the Testcontainers @ServiceConnection; jwk-set-uri and the payment
+# gateway base URL are pointed at WireMock by @DynamicPropertySource.
+spring:
+  jpa:
+    open-in-view: false
+
+invoices:
+  auth:
+    issuer: https://test-issuer.example.com/
+    audience: https://api.test.example.com
+    # Overridden by @DynamicPropertySource to point at WireMock's JWKS stub.
+    jwk-set-uri: http://localhost/.well-known/jwks.json
+
+logging:
+  level:
+    org.testcontainers: WARN
+    com.github.dockerjava: WARN

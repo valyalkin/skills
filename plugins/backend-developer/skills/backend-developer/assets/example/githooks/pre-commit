@@ -1,0 +1,6 @@
+#!/bin/sh
+# Installed into .git/hooks by the `installGitHooks` task on every build.
+# Formatting and static analysis only - the full test suite belongs in CI, not in a commit.
+set -e
+echo "pre-commit: ktlintCheck + detekt"
+./gradlew --quiet ktlintCheck detekt
